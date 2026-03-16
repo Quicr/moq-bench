@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "subscriber_track_handler.hpp"
-#include "qperf.hpp"
+#include "moqbench.hpp"
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
@@ -18,7 +18,7 @@
 #include <string>
 #include <thread>
 
-namespace qperf {
+namespace moqbench {
 
     std::atomic_bool terminate = false;
 
@@ -40,7 +40,7 @@ namespace qperf {
       , total_objects_(0)
       , total_bytes_(0)
       , test_identifier_(test_identifier)
-      , test_mode_(qperf::TestMode::kNone)
+      , test_mode_(moqbench::TestMode::kNone)
       , max_bitrate_(0)
       , min_bitrate_(0)
       , avg_bitrate_(0.0)
@@ -126,9 +126,9 @@ namespace qperf {
 
         memcpy(&test_mode_, data_span.data(), sizeof(std::uint8_t));
 
-        if (test_mode_ == qperf::TestMode::kRunning) {
+        if (test_mode_ == moqbench::TestMode::kRunning) {
 
-            qperf::ObjectTestHeader test_header;
+            moqbench::ObjectTestHeader test_header;
             memset(&test_header, '\0', sizeof(test_header));
             memcpy(&test_header,
                    &data_span[0],
@@ -196,7 +196,7 @@ namespace qperf {
                                               : (std::int64_t)min_object_arrival_delta_;
             }
 
-        } else if (test_mode_ == qperf::TestMode::kComplete) {
+        } else if (test_mode_ == moqbench::TestMode::kComplete) {
 
             ObjectTestComplete test_complete;
 
@@ -284,7 +284,7 @@ namespace qperf {
         auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
         auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
 
-        if (test_mode_ == qperf::TestMode::kRunning) {
+        if (test_mode_ == moqbench::TestMode::kRunning) {
             std::uint64_t delta_bytes = metrics_.bytes_received - last_bytes_;
             std::uint64_t bitrate = ((delta_bytes) * 8) / std::max(diff.count(), std::int64_t(1));
             metric_samples_ += 1;

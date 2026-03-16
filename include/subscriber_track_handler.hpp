@@ -4,9 +4,9 @@
 #include <quicr/client.h>
 
 #include "inicpp.h"
-#include "qperf.hpp"
+#include "moqbench.hpp"
 
-namespace qperf {
+namespace moqbench {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
       private:
@@ -38,7 +38,7 @@ namespace qperf {
         std::uint64_t total_objects_;
         std::uint64_t total_bytes_;
         std::uint32_t test_identifier_;
-        qperf::TestMode test_mode_;
+        moqbench::TestMode test_mode_;
 
         std::uint64_t max_bitrate_;
         std::uint64_t min_bitrate_;

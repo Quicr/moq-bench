@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace qperf {
+namespace moqbench {
     struct PerfConfig
     {
         std::string test_name;
@@ -143,4 +143,4 @@ namespace qperf {
      * @details Publish track handler used for the publish command line option
      */
 
-} // namespace qperf
+} // namespace moqbench

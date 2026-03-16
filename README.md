@@ -1,4 +1,4 @@
-# qperf
+# moq-bench
 
 Utility to evaluate relay performance.
 
@@ -49,7 +49,7 @@ The binaries will be under `./build`
 
 ## Using
 
-The `qperf` program uses a config file to build tracks. It builds a conference
+The `moqbench` program uses a config file to build tracks. It builds a conference
 client by creating 1 publisher track for every Track section in the config file,
 and N - 1 subscriber tracks for every Track section. The client does not subscribe
 to its own publisher track.

@@ -18,7 +18,7 @@
 #include <thread>
 #include <vector>
 
-using namespace qperf;
+using namespace moqbench;
 
 class PerfClient : public quicr::Client
 {
@@ -161,7 +161,7 @@ int
 main(int argc, char** argv)
 {
     // clang-format off
-    cxxopts::Options options("QPerf");
+    cxxopts::Options options("MoqBench");
     options.add_options()
         ("endpoint_id",     "Name of the client",               cxxopts::value<std::string>()->default_value("perf@cisco.com"))
         ("connect_uri",     "Relay to connect to",              cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
