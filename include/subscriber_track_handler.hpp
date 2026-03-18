@@ -10,7 +10,7 @@ namespace moqbench {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
       private:
-        PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier);
+        PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier, bool publish_initiated=false);
 
       public:
         static std::shared_ptr<PerfSubscribeTrackHandler> Create(const std::string& section_name,

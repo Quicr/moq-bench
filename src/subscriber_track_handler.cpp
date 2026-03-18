@@ -26,11 +26,15 @@ namespace moqbench {
      * @brief  Subscribe track handler
      * @details Subscribe track handler used for the subscribe command line option.
      */
-    PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier)
+    PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config,
+                                                         std::uint32_t test_identifier,
+                                                         bool publish_initiated)
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
                               quicr::messages::GroupOrder::kOriginalPublisherOrder,
-                              quicr::messages::FilterType::kLargestObject)
+                              quicr::messages::FilterType::kLargestObject,
+                              std::nullopt,
+                              publish_initiated)
       , terminate_(false)
       , perf_config_(perf_config)
       , first_pass_(true)

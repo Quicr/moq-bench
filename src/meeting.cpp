@@ -36,6 +36,41 @@ class PerfClient : public quicr::Client
     {
     }
 
+    void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::messages::PublishAttributes& publish_attributes,
+                         std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override
+    {
+        for (const auto& handler: sub_track_handlers_) {
+            const auto tfn = handler->GetFullTrackName();
+            const auto ns = tfn.name_space;
+
+            if (ns == publish_attributes.track_full_name.name_space) {
+                std::ostringstream ns_str;
+                auto ns_entries = ns.GetEntries();
+
+                for (const auto entry: ns_entries) {
+                    ns_str << '/';
+                    ns_str << std::string(entry.begin(), entry.end());
+                }
+
+                SPDLOG_INFO("Publish Received matching Subscribe track; test name: {} ns: {} name: {}",
+                            handler->TestName(),
+                            ns_str.str(),
+                            std::string(tfn.name.begin(), tfn.name.end()));
+
+                ResolvePublish(connection_handle,
+                               request_id,
+                               publish_attributes,
+                               { quicr::PublishResponse::ReasonCode::kOk },
+                               handler);
+
+                break;
+            }
+        }
+    }
+
+
     void StatusChanged(Status status)
     {
         switch (status) {
@@ -57,7 +92,11 @@ class PerfClient : public quicr::Client
                     for (const auto& [section_name, _] : inif_) {
                         auto sub_handler = sub_track_handlers_.emplace_back(
                           PerfSubscribeTrackHandler::Create(section_name, inif_, i + (meeting_id_ * 1000)));
-                        SubscribeTrack(sub_handler);
+
+                        sub_handler->SetPublishInitiated();
+
+                        auto sub_ns = quicr::SubscribeNamespaceHandler::Create(sub_handler->GetFullTrackName().name_space);
+                        SubscribeNamespace(sub_ns);
                     }
                 }
 
