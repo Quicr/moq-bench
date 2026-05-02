@@ -31,8 +31,8 @@ namespace moqbench {
                                                          bool publish_initiated)
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
-                              quicr::messages::GroupOrder::kOriginalPublisherOrder,
-                              quicr::messages::FilterType::kLargestObject,
+                              quicr::messages::GroupOrder::kAscending,
+                              std::monostate{},
                               std::nullopt,
                               publish_initiated)
       , terminate_(false)
@@ -114,7 +114,8 @@ namespace moqbench {
     }
 
     void PerfSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_header,
-                                                   quicr::BytesSpan data_span)
+                                                   quicr::BytesSpan data_span,
+                                                   std::optional<quicr::messages::StreamHeaderProperties> stream_mode)
     {
         auto received_time = std::chrono::system_clock::now();
         local_now_ = std::chrono::time_point_cast<std::chrono::microseconds>(received_time).time_since_epoch().count();

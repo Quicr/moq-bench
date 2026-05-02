@@ -16,7 +16,9 @@ namespace moqbench {
         static std::shared_ptr<PerfSubscribeTrackHandler> Create(const std::string& section_name,
                                                                  ini::IniFile& inif,
                                                                  std::uint32_t test_identifier);
-        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override;
+        void ObjectReceived(const quicr::ObjectHeaders&,
+                            quicr::BytesSpan,
+                            std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
         void StatusChanged(Status status) override;
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
