@@ -41,9 +41,15 @@ namespace moqbench {
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
-                auto track_alias = GetTrackAlias().value();
+                auto track_alias = GetTrackAlias().value_or(0);
                 SPDLOG_INFO("Track alias: {0} is ready to write", track_alias);
-                write_thread_ = SpawnWriter();
+
+                if (!write_thread_.joinable()) {
+                    write_thread_ = SpawnWriter();
+                } else {
+                    SPDLOG_INFO("Writer already running for track alias: {} - skipping respawn", track_alias);
+                }
+
             } break;
             case Status::kNotConnected:
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kNotConnected");
