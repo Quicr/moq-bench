@@ -70,7 +70,7 @@ namespace moqbench {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kSendingUnannounce");
                 break;
             case Status::kPaused:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kPaused");
+                SPDLOG_INFO("PerfPublishTrackHandler - status kPaused");
                 break;
             case Status::kNewGroupRequested:
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kNewGroupRequested");

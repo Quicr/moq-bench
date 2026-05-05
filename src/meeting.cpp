@@ -54,14 +54,18 @@ class PerfClient : public quicr::Client
                     ns_str << std::string(entry.begin(), entry.end());
                 }
 
-                SPDLOG_INFO("Publish Received matching Subscribe track; test name: {} ns: {} name: {}",
+                SPDLOG_INFO("Publish Received mat ching Subscribe track; test name: {} ns: {} name: {} forward: {}",
                             handler->TestName(),
                             ns_str.str(),
-                            std::string(tfn.name.begin(), tfn.name.end()));
+                            std::string(tfn.name.begin(), tfn.name.end()),
+                            static_cast<int>(publish_attributes.forward));
+
+                auto pub_attrs = publish_attributes;
+                pub_attrs.forward = 1;
 
                 ResolvePublish(connection_handle,
                                request_id,
-                               publish_attributes,
+                               pub_attrs,
                                { quicr::PublishResponse::ReasonCode::kOk },
                                handler);
 
@@ -109,7 +113,7 @@ class PerfClient : public quicr::Client
                 break;
             case Status::kNotConnected:
                 SPDLOG_INFO("Client status - kNotConnected");
-                break;
+                exit(0);
             case Status::kPendingServerSetup:
                 SPDLOG_INFO("Client status - kPendingSeverSetup");
                 break;
