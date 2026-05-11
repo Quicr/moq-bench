@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "publisher_track_handler.hpp"
-#include "qperf.hpp"
+#include "moqbench.hpp"
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
@@ -37,7 +37,7 @@ class PerfPubClient : public quicr::Client
                 for (const auto& section_pair : inif_) {
                     const std::string& section_name = section_pair.first;
                     auto pub_handler =
-                      track_handlers_.emplace_back(qperf::PerfPublishTrackHandler::Create(section_name, inif_, 0));
+                      track_handlers_.emplace_back(moqbench::PerfPublishTrackHandler::Create(section_name, inif_, 0));
                     PublishTrack(pub_handler);
                 }
                 break;
@@ -118,7 +118,7 @@ class PerfPubClient : public quicr::Client
     bool terminate_;
     std::string configfile_;
     ini::IniFile inif_;
-    std::vector<std::shared_ptr<qperf::PerfPublishTrackHandler>> track_handlers_;
+    std::vector<std::shared_ptr<moqbench::PerfPublishTrackHandler>> track_handlers_;
     std::mutex track_handlers_mutex_;
 };
 
@@ -134,7 +134,7 @@ int
 main(int argc, char** argv)
 {
     // clang-format off
-    cxxopts::Options options("QPerf");
+    cxxopts::Options options("MoqBench");
     options.add_options()
         ("endpoint_id",     "Name of the client",                                    cxxopts::value<std::string>()->default_value("perf@cisco.com"))
         ("connect_uri",     "Relay to connect to",                                   cxxopts::value<std::string>()->default_value("moq://localhost:1234"))

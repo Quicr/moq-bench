@@ -37,7 +37,7 @@ class PerfSubClient : public quicr::Client
                     const std::string& section_name = section_pair.first;
                     SPDLOG_INFO("Starting test - {}", section_name);
                     auto sub_handler =
-                      track_handlers_.emplace_back(qperf::PerfSubscribeTrackHandler::Create(section_name, inif_, 0));
+                      track_handlers_.emplace_back(moqbench::PerfSubscribeTrackHandler::Create(section_name, inif_, 0));
                     SubscribeTrack(sub_handler);
                 }
                 break;
@@ -111,7 +111,7 @@ class PerfSubClient : public quicr::Client
     ini::IniFile inif_;
     std::uint32_t test_identifier_;
 
-    std::vector<std::shared_ptr<qperf::PerfSubscribeTrackHandler>> track_handlers_;
+    std::vector<std::shared_ptr<moqbench::PerfSubscribeTrackHandler>> track_handlers_;
 
     std::mutex track_handlers_mutex_;
 };
@@ -128,7 +128,7 @@ int
 main(int argc, char** argv)
 {
     // clang-format off
-    cxxopts::Options options("QPerf");
+    cxxopts::Options options("MoqBench");
     options.add_options()
         ("endpoint_id",     "Name of the client",                                    cxxopts::value<std::string>()->default_value("perf@cisco.com"))
         ("connect_uri",     "Relay to connect to",                                   cxxopts::value<std::string>()->default_value("moq://localhost:1234"))

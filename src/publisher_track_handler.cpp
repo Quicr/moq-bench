@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "publisher_track_handler.hpp"
-#include "qperf.hpp"
+#include "moqbench.hpp"
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
@@ -13,13 +13,13 @@
 #include <cstdlib>
 #include <thread>
 
-namespace qperf {
+namespace moqbench {
     PerfPublishTrackHandler::PerfPublishTrackHandler(const PerfConfig& perf_config)
       : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
       , perf_config_(perf_config)
       , terminate_(false)
       , last_bytes_(0)
-      , test_mode_(qperf::TestMode::kNone)
+      , test_mode_(moqbench::TestMode::kNone)
       , group_id_(0)
       , object_id_(0)
 
@@ -41,9 +41,15 @@ namespace qperf {
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
-                auto track_alias = GetTrackAlias().value();
+                auto track_alias = GetTrackAlias().value_or(0);
                 SPDLOG_INFO("Track alias: {0} is ready to write", track_alias);
-                write_thread_ = SpawnWriter();
+
+                if (!write_thread_.joinable()) {
+                    write_thread_ = SpawnWriter();
+                } else {
+                    SPDLOG_INFO("Writer already running for track alias: {} - skipping respawn", track_alias);
+                }
+
             } break;
             case Status::kNotConnected:
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kNotConnected");
@@ -64,7 +70,7 @@ namespace qperf {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kSendingUnannounce");
                 break;
             case Status::kPaused:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kPaused");
+                SPDLOG_INFO("PerfPublishTrackHandler - status kPaused");
                 break;
             case Status::kNewGroupRequested:
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kNewGroupRequested");
@@ -82,7 +88,7 @@ namespace qperf {
     {
         std::lock_guard<std::mutex> _(mutex_);
         auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-        if (test_mode_ == qperf::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
+        if (test_mode_ == moqbench::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
             // calculate bitrate metrics
             auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
             std::uint64_t delta_bytes = metrics.bytes_published - last_bytes_;
@@ -141,7 +147,7 @@ namespace qperf {
         }
 
         // fill out test_header
-        test_header.test_mode = qperf::TestMode::kRunning;
+        test_header.test_mode = moqbench::TestMode::kRunning;
         test_header.time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
 
         // check how much we can write in the header
@@ -167,7 +173,7 @@ namespace qperf {
     std::uint64_t PerfPublishTrackHandler::PublishTestComplete()
     {
         std::lock_guard<std::mutex> _(mutex_);
-        test_mode_ = qperf::TestMode::kComplete;
+        test_mode_ = moqbench::TestMode::kComplete;
         auto now = std::chrono::system_clock::now();
         auto duration = now.time_since_epoch();
 
@@ -260,7 +266,7 @@ namespace qperf {
         // Delay before transmitting
         if (perf_config_.start_delay > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(33));
-            test_mode_ = qperf::TestMode::kWaitPreTest;
+            test_mode_ = moqbench::TestMode::kWaitPreTest;
             SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
             const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
@@ -277,7 +283,7 @@ namespace qperf {
         // Transmit
         SPDLOG_INFO("{} Start transmitting for {} ms", perf_config_.test_name, perf_config_.total_transmit_time);
 
-        test_mode_ = qperf::TestMode::kRunning;
+        test_mode_ = moqbench::TestMode::kRunning;
         while (!terminate_) {
             std::chrono::time_point<std::chrono::system_clock> last_publish_time;
             if (object_id_ == 0) {
@@ -317,4 +323,4 @@ namespace qperf {
             write_thread_.join();
         }
     }
-} // namespace qperf
+} // namespace

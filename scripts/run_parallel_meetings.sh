@@ -19,7 +19,7 @@ else
 fi
 
 if [ -z "$3" ]; then
-    echo "Config file is required"
+    echo "Config file . required"
     exit 1
 else
     CONFIG_PATH="$3"
@@ -41,5 +41,5 @@ rm -rf $LOGS_DIR
 mkdir -p $LOGS_DIR
 
 for conference_id in $(seq 1 $MEETINGS); do
-    parallel -j ${INSTANCES}  "./qperf_meeting --conference_id $conference_id -i {} -n $INSTANCES -c $CONFIG_PATH --connect_uri $RELAY > $LOGS_DIR/t_$conference_id{}logs.txt 2>&1 &" ::: $(seq ${INSTANCES})
+    parallel -j ${INSTANCES}  "./moqbench_meeting --meeting_id $conference_id -i {} -n $INSTANCES -c $CONFIG_PATH --connect_uri $RELAY > $LOGS_DIR/t_$conference_id{}logs.txt 2>&1 &" ::: $(seq ${INSTANCES})
 done

@@ -4,19 +4,21 @@
 #include <quicr/client.h>
 
 #include "inicpp.h"
-#include "qperf.hpp"
+#include "moqbench.hpp"
 
-namespace qperf {
+namespace moqbench {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
       private:
-        PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier);
+        PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier, bool publish_initiated=false);
 
       public:
         static std::shared_ptr<PerfSubscribeTrackHandler> Create(const std::string& section_name,
                                                                  ini::IniFile& inif,
                                                                  std::uint32_t test_identifier);
-        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override;
+        void ObjectReceived(const quicr::ObjectHeaders&,
+                            quicr::BytesSpan,
+                            std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
         void StatusChanged(Status status) override;
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
@@ -38,7 +40,7 @@ namespace qperf {
         std::uint64_t total_objects_;
         std::uint64_t total_bytes_;
         std::uint32_t test_identifier_;
-        qperf::TestMode test_mode_;
+        moqbench::TestMode test_mode_;
 
         std::uint64_t max_bitrate_;
         std::uint64_t min_bitrate_;

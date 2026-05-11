@@ -18,7 +18,7 @@
 #include <thread>
 #include <vector>
 
-using namespace qperf;
+using namespace moqbench;
 
 class PerfClient : public quicr::Client
 {
@@ -35,6 +35,45 @@ class PerfClient : public quicr::Client
       , instances_(instances)
     {
     }
+
+    void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::messages::PublishAttributes& publish_attributes,
+                         std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override
+    {
+        for (const auto& handler: sub_track_handlers_) {
+            const auto tfn = handler->GetFullTrackName();
+            const auto ns = tfn.name_space;
+
+            if (ns == publish_attributes.track_full_name.name_space) {
+                std::ostringstream ns_str;
+                auto ns_entries = ns.GetEntries();
+
+                for (const auto entry: ns_entries) {
+                    ns_str << '/';
+                    ns_str << std::string(entry.begin(), entry.end());
+                }
+
+                SPDLOG_INFO("Publish Received mat ching Subscribe track; test name: {} ns: {} name: {} forward: {}",
+                            handler->TestName(),
+                            ns_str.str(),
+                            std::string(tfn.name.begin(), tfn.name.end()),
+                            static_cast<int>(publish_attributes.forward));
+
+                auto pub_attrs = publish_attributes;
+                pub_attrs.forward = 1;
+
+                ResolvePublish(connection_handle,
+                               request_id,
+                               pub_attrs,
+                               { quicr::PublishResponse::ReasonCode::kOk },
+                               handler);
+
+                break;
+            }
+        }
+    }
+
 
     void StatusChanged(Status status)
     {
@@ -57,7 +96,11 @@ class PerfClient : public quicr::Client
                     for (const auto& [section_name, _] : inif_) {
                         auto sub_handler = sub_track_handlers_.emplace_back(
                           PerfSubscribeTrackHandler::Create(section_name, inif_, i + (meeting_id_ * 1000)));
-                        SubscribeTrack(sub_handler);
+
+                        sub_handler->SetPublishInitiated();
+
+                        auto sub_ns = quicr::SubscribeNamespaceHandler::Create(sub_handler->GetFullTrackName().name_space);
+                        SubscribeNamespace(sub_ns);
                     }
                 }
 
@@ -70,7 +113,7 @@ class PerfClient : public quicr::Client
                 break;
             case Status::kNotConnected:
                 SPDLOG_INFO("Client status - kNotConnected");
-                break;
+                exit(0);
             case Status::kPendingServerSetup:
                 SPDLOG_INFO("Client status - kPendingSeverSetup");
                 break;
@@ -161,7 +204,7 @@ int
 main(int argc, char** argv)
 {
     // clang-format off
-    cxxopts::Options options("QPerf");
+    cxxopts::Options options("MoqBench");
     options.add_options()
         ("endpoint_id",     "Name of the client",               cxxopts::value<std::string>()->default_value("perf@cisco.com"))
         ("connect_uri",     "Relay to connect to",              cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
