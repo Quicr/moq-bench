@@ -127,14 +127,17 @@ HandleTerminateSignal(int)
 int
 main(int argc, char** argv)
 {
+    bool debug{ false };
+
     // clang-format off
     cxxopts::Options options("MoqBench");
     options.add_options()
-        ("endpoint_id",     "Name of the client",                                    cxxopts::value<std::string>()->default_value("perf@cisco.com"))
-        ("connect_uri",     "Relay to connect to",                                   cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-        ("i,test_id",        "Test idenfiter number",                                cxxopts::value<std::uint32_t>()->default_value("1"))
-        ("c,config",        "Scenario config file",                                  cxxopts::value<std::string>())
-        ("h,help",          "Print usage");
+        ("endpoint_id","Name of the client", cxxopts::value<std::string>()->default_value("perf@cisco.com"))
+        ("connect_uri", "Relay to connect to", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
+        ("i,test_id", "Test idenfiter number", cxxopts::value<std::uint32_t>()->default_value("1"))
+        ("c,config","Scenario config file", cxxopts::value<std::string>())
+        ("d,debug","Enable debug")
+        ("h,help", "Print usage");
     // clang-format on
 
     cxxopts::ParseResult result;
@@ -151,12 +154,23 @@ main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
+    if (result.count("debug")) {
+        debug = true;
+    }
+
+    const auto logger = spdlog::stderr_color_mt(log_id);
+
     quicr::TransportConfig config;
     config.tls_cert_filename = "";
     config.tls_key_filename = "";
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
+
+    if (debug) {
+        config.debug = true;
+        logger->set_level(spdlog::level::debug);
+    }
 
     auto endpoint_test_id =
       result["endpoint_id"].as<std::string>() + ":" + std::to_string(result["test_id"].as<std::uint32_t>());
@@ -169,9 +183,6 @@ main(int argc, char** argv)
     client_config.tick_service_sleep_delay_us = 50'000;
 
     auto log_id = endpoint_test_id;
-
-    const auto logger = spdlog::stderr_color_mt(log_id);
-
     auto test_identifier = result["test_id"].as<std::uint32_t>();
 
     auto client = std::make_shared<PerfSubClient>(client_config, result["config"].as<std::string>(), test_identifier);
@@ -195,6 +206,7 @@ main(int argc, char** argv)
 
     client->Terminate();
     client->Disconnect();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     return EXIT_SUCCESS;
 }

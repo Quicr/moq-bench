@@ -88,6 +88,7 @@ namespace moqbench {
     {
         std::lock_guard<std::mutex> _(mutex_);
         auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
         if (test_mode_ == moqbench::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
             // calculate bitrate metrics
             auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
@@ -100,12 +101,14 @@ namespace moqbench {
               bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
             test_metrics_.metric_samples += 1;
             test_metrics_.avg_publish_bitrate = test_metrics_.bitrate_total / test_metrics_.metric_samples;
-            SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, {}, {}, {}",
+
+            SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, objs: {} bw min/max/avg: {} / {} /  {}",
                         perf_config_.test_name,
                         bitrate,
                         FormatBitrate(bitrate),
                         delta_bytes,
                         diff.count(),
+                        metrics.objects_published,
                         test_metrics_.min_publish_bitrate,
                         test_metrics_.max_publish_bitrate,
                         test_metrics_.avg_publish_bitrate);
