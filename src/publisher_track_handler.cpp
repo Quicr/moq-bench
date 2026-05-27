@@ -266,20 +266,45 @@ namespace moqbench {
         auto transmit_time_ms = std::chrono::milliseconds(perf_config_.total_test_time);
         auto end_transmit_time = start_transmit_time + transmit_time_ms;
 
-        // Delay before transmitting
+        // Delay before transmitting. If the status transitions to kPaused during this
+        // delay, suspend the writer until status leaves kPaused (or terminate_ is set),
+        // then restart the start_delay timer from the beginning.
         if (perf_config_.start_delay > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(33));
             test_mode_ = moqbench::TestMode::kWaitPreTest;
-            SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
-            const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
-            auto end_time = start + delay_ms;
-            while (!terminate_) {
-                auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-                if (now >= end_time) {
-                    break;
+
+            bool restart_delay = true;
+            while (restart_delay && !terminate_) {
+                restart_delay = false;
+                SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
+                const std::chrono::time_point<std::chrono::system_clock> start =
+                  std::chrono::system_clock::now();
+                auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
+                auto end_time = start + delay_ms;
+                while (!terminate_) {
+                    if (GetStatus() == Status::kPaused) {
+                        SPDLOG_INFO("{} Status is kPaused during start delay - suspending writer",
+                                    perf_config_.test_name);
+                        while (!terminate_ && GetStatus() == Status::kPaused) {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                        }
+                        if (terminate_) {
+                            break;
+                        }
+                        SPDLOG_INFO("{} Status left kPaused (now {}) - restarting start delay",
+                                    perf_config_.test_name,
+                                    static_cast<int>(GetStatus()));
+                        restart_delay = true;
+                        break;
+                    }
+
+                    auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now());
+                    if (now >= end_time) {
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::microseconds(500));
                 }
-                std::this_thread::sleep_for(std::chrono::microseconds(500));
             }
         }
 
