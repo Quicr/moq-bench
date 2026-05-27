@@ -181,7 +181,7 @@ main(int argc, char** argv)
 
     if (debug) {
         config.debug = true;
-        logger->set_level(spdlog::level::debug);
+        spdlog::set_level(spdlog::level::debug);
     }
 
     auto config_file = result["config"].as<std::string>();

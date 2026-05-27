@@ -182,7 +182,7 @@ main(int argc, char** argv)
 
     if (debug) {
         config.debug = true;
-        logger->set_level(spdlog::level::debug);
+        spdlog::set_level(spdlog::level::debug);
     }
 
     auto client = std::make_shared<PerfSubClient>(client_config, result["config"].as<std::string>(), test_identifier);
