@@ -158,19 +158,12 @@ main(int argc, char** argv)
         debug = true;
     }
 
-    const auto logger = spdlog::stderr_color_mt(log_id);
-
     quicr::TransportConfig config;
     config.tls_cert_filename = "";
     config.tls_key_filename = "";
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
-
-    if (debug) {
-        config.debug = true;
-        logger->set_level(spdlog::level::debug);
-    }
 
     auto endpoint_test_id =
       result["endpoint_id"].as<std::string>() + ":" + std::to_string(result["test_id"].as<std::uint32_t>());
@@ -184,6 +177,13 @@ main(int argc, char** argv)
 
     auto log_id = endpoint_test_id;
     auto test_identifier = result["test_id"].as<std::uint32_t>();
+
+    const auto logger = spdlog::stderr_color_mt(log_id);
+
+    if (debug) {
+        config.debug = true;
+        logger->set_level(spdlog::level::debug);
+    }
 
     auto client = std::make_shared<PerfSubClient>(client_config, result["config"].as<std::string>(), test_identifier);
 
