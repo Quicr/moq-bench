@@ -126,6 +126,7 @@ namespace moqbench {
         memset(&test_header, '\0', sizeof(test_header));
         if (perf_config_.objects_per_group > 0) {
             if (!(object_id_ % perf_config_.objects_per_group)) {
+                EndSubgroup(group_id_, 0);
                 object_id_ = 0;
                 group_id_ += 1;
             }
