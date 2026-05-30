@@ -130,8 +130,6 @@ namespace moqbench {
                 object_id_ = 0;
                 group_id_ += 1;
             }
-        } else {
-            SPDLOG_WARN("{} Error - objects per groups <= 0", perf_config_.test_name);
         }
 
         quicr::ObjectHeaders object_headers;
