@@ -175,7 +175,7 @@ main(int argc, char** argv)
     client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
-    client_config.tick_service_sleep_delay_us = 50000;
+    client_config.tick_service_sleep_delay_us = 500'000;
 
     const auto logger = spdlog::stderr_color_mt("PERF");
 
