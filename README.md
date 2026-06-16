@@ -1,6 +1,9 @@
 # moq-bench
 
-Utility to evaluate relay performance.
+Media over QUIC (MOQ) Utility to evaluate relay performance.
+
+The program uses a publisher and subscriber to measure end-to-end performance
+via a Media over QUIC (MOQ) relay. 
 
 ## Configuration
 

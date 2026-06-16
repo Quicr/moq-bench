@@ -127,14 +127,17 @@ HandleTerminateSignal(int)
 int
 main(int argc, char** argv)
 {
+    bool debug{ false };
+
     // clang-format off
     cxxopts::Options options("MoqBench");
     options.add_options()
-        ("endpoint_id",     "Name of the client",                                    cxxopts::value<std::string>()->default_value("perf@cisco.com"))
-        ("connect_uri",     "Relay to connect to",                                   cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-        ("i,test_id",        "Test idenfiter number",                                cxxopts::value<std::uint32_t>()->default_value("1"))
-        ("c,config",        "Scenario config file",                                  cxxopts::value<std::string>())
-        ("h,help",          "Print usage");
+        ("endpoint_id","Name of the client", cxxopts::value<std::string>()->default_value("perf@cisco.com"))
+        ("connect_uri", "Relay to connect to", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
+        ("i,test_id", "Test idenfiter number", cxxopts::value<std::uint32_t>()->default_value("1"))
+        ("c,config","Scenario config file", cxxopts::value<std::string>())
+        ("d,debug","Enable debug")
+        ("h,help", "Print usage");
     // clang-format on
 
     cxxopts::ParseResult result;
@@ -149,6 +152,10 @@ main(int argc, char** argv)
     if (result.count("help")) {
         std::cerr << options.help() << std::endl;
         return EXIT_SUCCESS;
+    }
+
+    if (result.count("debug")) {
+        debug = true;
     }
 
     quicr::TransportConfig config;
@@ -166,13 +173,17 @@ main(int argc, char** argv)
     client_config.endpoint_id = endpoint_test_id;
     client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
-    client_config.tick_service_sleep_delay_us = 50'000;
+    client_config.tick_service_sleep_delay_us = 500'000;
 
     auto log_id = endpoint_test_id;
+    auto test_identifier = result["test_id"].as<std::uint32_t>();
 
     const auto logger = spdlog::stderr_color_mt(log_id);
 
-    auto test_identifier = result["test_id"].as<std::uint32_t>();
+    if (debug) {
+        config.debug = true;
+        spdlog::set_level(spdlog::level::debug);
+    }
 
     auto client = std::make_shared<PerfSubClient>(client_config, result["config"].as<std::string>(), test_identifier);
 
@@ -195,6 +206,7 @@ main(int argc, char** argv)
 
     client->Terminate();
     client->Disconnect();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     return EXIT_SUCCESS;
 }

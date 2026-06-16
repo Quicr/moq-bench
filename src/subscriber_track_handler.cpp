@@ -300,17 +300,16 @@ namespace moqbench {
             max_bitrate_ = bitrate > max_bitrate_ ? bitrate : max_bitrate_;
             min_bitrate_ = bitrate < min_bitrate_ ? bitrate : min_bitrate_;
             avg_bitrate_ = (double)bitrate_total_ / (double)metric_samples_;
-            SPDLOG_INFO("Metrics:, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
+
+            SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, objs: {} bw min/max/avg: {} / {} /  {}",
                         perf_config_.test_name,
                         bitrate,
                         FormatBitrate(bitrate),
                         delta_bytes,
                         diff.count(),
-                        metrics_.objects_received,
-                        metrics_.bytes_received,
-                        max_bitrate_,
+                        metrics.objects_received,
                         min_bitrate_,
+                        max_bitrate_,
                         avg_bitrate_);
         }
 

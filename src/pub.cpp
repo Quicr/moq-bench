@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "publisher_track_handler.hpp"
 #include "moqbench.hpp"
+#include "publisher_track_handler.hpp"
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
@@ -133,13 +133,16 @@ HandleTerminateSignal(int)
 int
 main(int argc, char** argv)
 {
+    bool debug{ false };
+
     // clang-format off
     cxxopts::Options options("MoqBench");
     options.add_options()
-        ("endpoint_id",     "Name of the client",                                    cxxopts::value<std::string>()->default_value("perf@cisco.com"))
-        ("connect_uri",     "Relay to connect to",                                   cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-        ("c,config",        "Scenario config file",                                  cxxopts::value<std::string>()->default_value("./config.ini"))
-        ("h,help",          "Print usage");
+        ("endpoint_id","Name of the client", cxxopts::value<std::string>()->default_value("perf@cisco.com"))
+        ("connect_uri", "Relay to connect to", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
+        ("c,config", "Scenario config file", cxxopts::value<std::string>()->default_value("./config.ini"))
+        ("d,debug", "Enable debug")
+        ("h,help", "Print usage");
     // clang-format on
 
     cxxopts::ParseResult result;
@@ -156,6 +159,10 @@ main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
+    if (result.count("debug")) {
+        debug = true;
+    }
+
     quicr::TransportConfig config;
     config.tls_cert_filename = "";
     config.tls_key_filename = "";
@@ -168,9 +175,14 @@ main(int argc, char** argv)
     client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
-    client_config.tick_service_sleep_delay_us = 50000;
+    client_config.tick_service_sleep_delay_us = 500'000;
 
     const auto logger = spdlog::stderr_color_mt("PERF");
+
+    if (debug) {
+        config.debug = true;
+        spdlog::set_level(spdlog::level::debug);
+    }
 
     auto config_file = result["config"].as<std::string>();
     SPDLOG_INFO("--------------------------------------------");
