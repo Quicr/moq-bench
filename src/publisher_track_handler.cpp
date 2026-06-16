@@ -276,8 +276,7 @@ namespace moqbench {
             while (restart_delay && !terminate_) {
                 restart_delay = false;
                 SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
-                const std::chrono::time_point<std::chrono::system_clock> start =
-                  std::chrono::system_clock::now();
+                const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                 auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
                 auto end_time = start + delay_ms;
                 while (!terminate_) {
@@ -297,8 +296,8 @@ namespace moqbench {
                         break;
                     }
 
-                    auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(
-                      std::chrono::system_clock::now());
+                    auto now =
+                      std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
                     if (now >= end_time) {
                         break;
                     }

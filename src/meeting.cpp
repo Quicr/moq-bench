@@ -41,7 +41,7 @@ class PerfClient : public quicr::Client
                          const quicr::messages::PublishAttributes& publish_attributes,
                          std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override
     {
-        for (const auto& handler: sub_track_handlers_) {
+        for (const auto& handler : sub_track_handlers_) {
             const auto tfn = handler->GetFullTrackName();
             const auto ns = tfn.name_space;
 
@@ -49,7 +49,7 @@ class PerfClient : public quicr::Client
                 std::ostringstream ns_str;
                 auto ns_entries = ns.GetEntries();
 
-                for (const auto entry: ns_entries) {
+                for (const auto entry : ns_entries) {
                     ns_str << '/';
                     ns_str << std::string(entry.begin(), entry.end());
                 }
@@ -63,17 +63,13 @@ class PerfClient : public quicr::Client
                 auto pub_attrs = publish_attributes;
                 pub_attrs.forward = 1;
 
-                ResolvePublish(connection_handle,
-                               request_id,
-                               pub_attrs,
-                               { quicr::PublishResponse::ReasonCode::kOk },
-                               handler);
+                ResolvePublish(
+                  connection_handle, request_id, pub_attrs, { quicr::PublishResponse::ReasonCode::kOk }, handler);
 
                 break;
             }
         }
     }
-
 
     void StatusChanged(Status status)
     {
@@ -99,7 +95,8 @@ class PerfClient : public quicr::Client
 
                         sub_handler->SetPublishInitiated();
 
-                        auto sub_ns = quicr::SubscribeNamespaceHandler::Create(sub_handler->GetFullTrackName().name_space);
+                        auto sub_ns =
+                          quicr::SubscribeNamespaceHandler::Create(sub_handler->GetFullTrackName().name_space);
                         SubscribeNamespace(sub_ns);
                     }
                 }
