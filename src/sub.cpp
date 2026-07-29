@@ -5,7 +5,7 @@
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
-#include <quicr/defer.h>
+#include <quicr/utilities/defer.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -164,6 +164,7 @@ main(int argc, char** argv)
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
+    config.metrics_sample_ms = 5000;
 
     auto endpoint_test_id =
       result["endpoint_id"].as<std::string>() + ":" + std::to_string(result["test_id"].as<std::uint32_t>());
@@ -171,7 +172,6 @@ main(int argc, char** argv)
     quicr::ClientConfig client_config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
     client_config.endpoint_id = endpoint_test_id;
-    client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
     client_config.tick_service_sleep_delay_us = 500'000;
 
@@ -190,7 +190,12 @@ main(int argc, char** argv)
     std::signal(SIGINT, HandleTerminateSignal);
 
     try {
-        client->Connect();
+        const auto status = client->Start();
+        if (status != quicr::Session::Status::kConnecting && status != quicr::Session::Status::kReady) {
+            SPDLOG_LOGGER_CRITICAL(logger, "Failed to start client for relay '{}' (status {})", client_config.connect_uri,
+                                   static_cast<int>(status));
+            return EXIT_FAILURE;
+        }
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_CRITICAL(
           logger, "Failed to connect to relay '{0}' with exception: {1}", client_config.connect_uri, e.what());
@@ -205,7 +210,7 @@ main(int argc, char** argv)
     }
 
     client->Terminate();
-    client->Disconnect();
+    client->Stop();
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     return EXIT_SUCCESS;

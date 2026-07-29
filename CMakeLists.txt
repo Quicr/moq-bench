@@ -16,7 +16,7 @@ include(cmake/CPM.cmake)
 ## hack fix for picotls and other older submodules of libquicr
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-CPMAddPackage("gh:Quicr/libquicr#main")
+CPMAddPackage("gh:Quicr/libquicr#c3019367494cf5e89172d5eb1878a5715c5cfbaf")
 CPMAddPackage("gh:jarro2783/cxxopts@3.3.1")
 
 #=============================================================================#

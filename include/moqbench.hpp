@@ -4,6 +4,9 @@
 
 #include <quicr/client.h>
 
+#include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
+
 #include <cstdint>
 
 namespace moqbench {
