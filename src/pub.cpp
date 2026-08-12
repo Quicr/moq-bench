@@ -6,7 +6,7 @@
 
 #include <cxxopts.hpp>
 #include <quicr/client.h>
-#include <quicr/defer.h>
+#include <quicr/utilities/defer.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -169,10 +169,10 @@ main(int argc, char** argv)
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
+    config.metrics_sample_ms = 5000;
 
     quicr::ClientConfig client_config;
     client_config.endpoint_id = result["endpoint_id"].as<std::string>();
-    client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
     client_config.tick_service_sleep_delay_us = 500'000;
@@ -198,7 +198,12 @@ main(int argc, char** argv)
     auto client = std::make_shared<PerfPubClient>(client_config, config_file);
 
     try {
-        client->Connect();
+        const auto status = client->Start();
+        if (status != quicr::Session::Status::kConnecting && status != quicr::Session::Status::kReady) {
+            SPDLOG_LOGGER_CRITICAL(logger, "Failed to start client for relay '{}' (status {})", client_config.connect_uri,
+                                   static_cast<int>(status));
+            return EXIT_FAILURE;
+        }
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_CRITICAL(
           logger, "Failed to connect to relay '{0}' with exception: {1}", client_config.connect_uri, e.what());
@@ -213,6 +218,6 @@ main(int argc, char** argv)
     }
 
     client->Terminate();
-    client->Disconnect();
+    client->Stop();
     return EXIT_SUCCESS;
 }
