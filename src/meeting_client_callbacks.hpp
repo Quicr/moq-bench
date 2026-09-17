@@ -4,11 +4,11 @@
 #include "publisher_track_handler.hpp"
 #include "subscriber_track_handler.hpp"
 
-#include <quicr/utilities/defer.h>
-
 #include <chrono>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <vector>
 
 namespace moqbench {
 
@@ -34,27 +34,36 @@ namespace moqbench {
           const quicr::PublishAttributes& publish_attributes,
           [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override
         {
+            std::lock_guard<std::mutex> _(mutex_);
+
             for (const auto& handler : sub_track_handlers_) {
                 const auto tfn = handler->GetFullTrackName();
-                const auto ns = tfn.name_space;
+                const auto& pub_tfn = publish_attributes.track_full_name;
 
-                if (ns == publish_attributes.track_full_name.name_space) {
-                    std::ostringstream ns_str;
-                    auto ns_entries = ns.GetEntries();
-
-                    for (const auto entry : ns_entries) {
-                        ns_str << '/';
-                        ns_str << std::string(entry.begin(), entry.end());
-                    }
-
-                    SPDLOG_INFO("Publish Received matching Subscribe track; test name: {} ns: {} name: {} forward: {}",
-                                handler->TestName(),
-                                ns_str.str(),
-                                std::string(tfn.name.begin(), tfn.name.end()),
-                                static_cast<int>(publish_attributes.forward));
-
-                    return quicr::PublishResponse{ { .forward = true }, handler };
+                if (tfn.name_space != pub_tfn.name_space || tfn.name != pub_tfn.name) {
+                    continue;
                 }
+
+                // Already bound to a prior PUBLISH; keep looking for a free handler.
+                if (handler->GetRequestId().has_value()) {
+                    continue;
+                }
+
+                std::ostringstream ns_str;
+                auto ns_entries = tfn.name_space.GetEntries();
+
+                for (const auto entry : ns_entries) {
+                    ns_str << '/';
+                    ns_str << std::string(entry.begin(), entry.end());
+                }
+
+                SPDLOG_INFO("Publish Received matching Subscribe track; test name: {} ns: {} name: {} forward: {}",
+                            handler->TestName(),
+                            ns_str.str(),
+                            std::string(tfn.name.begin(), tfn.name.end()),
+                            static_cast<int>(publish_attributes.forward));
+
+                return quicr::PublishResponse{ { .forward = true }, handler };
             }
 
             return quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(quicr::PublishErrorCode::kInternalError,
@@ -64,35 +73,51 @@ namespace moqbench {
         void StatusChanged(const std::shared_ptr<quicr::Session>& session, quicr::Session::Status status) override
         {
             switch (status) {
-                case quicr::Session::Status::kReady:
+                case quicr::Session::Status::kReady: {
                     SPDLOG_INFO("Client status - kReady");
                     inif_.load(config_file_);
 
-                    for (const auto& [section_name, _] : inif_) {
-                        auto pub_handler = pub_track_handlers_.emplace_back(
-                          PerfPublishTrackHandler::Create(section_name, inif_, instance_id_ + (meeting_id_ * 1000)));
+                    std::vector<std::shared_ptr<PerfPublishTrackHandler>> pubs_to_start;
+                    std::vector<std::shared_ptr<quicr::SubscribeNamespaceHandler>> nss_to_start;
+
+                    {
+                        std::lock_guard<std::mutex> _(mutex_);
+
+                        for (const auto& [section_name, _] : inif_) {
+                            auto pub_handler = pub_track_handlers_.emplace_back(
+                              PerfPublishTrackHandler::Create(section_name, inif_, instance_id_ + (meeting_id_ * 1000)));
+                            pubs_to_start.push_back(pub_handler);
+                        }
+
+                        for (std::uint32_t i = 1; i <= instances_; ++i) {
+                            if (i == instance_id_) {
+                                continue;
+                            }
+
+                            for (const auto& [section_name, _] : inif_) {
+                                auto sub_handler = sub_track_handlers_.emplace_back(PerfSubscribeTrackHandler::Create(
+                                  section_name, inif_, i + (meeting_id_ * 1000), timeout_grace_ms_));
+
+                                sub_handler->SetPublishInitiated();
+
+                                nss_to_start.push_back(quicr::SubscribeNamespaceHandler::Create(
+                                  sub_handler->GetFullTrackName().name_space,
+                                  quicr::SubscribeNamespaceHandler::Mode::kTracks));
+                            }
+                        }
+                    }
+
+                    // Session calls can deliver PublishReceived on this thread; do not hold mutex_.
+                    for (const auto& pub_handler : pubs_to_start) {
                         session->PublishTrack(pub_handler);
                     }
 
-                    for (std::uint32_t i = 1; i <= instances_; ++i) {
-                        if (i == instance_id_) {
-                            continue;
-                        }
-
-                        for (const auto& [section_name, _] : inif_) {
-                            auto sub_handler = sub_track_handlers_.emplace_back(PerfSubscribeTrackHandler::Create(
-                              section_name, inif_, i + (meeting_id_ * 1000), timeout_grace_ms_));
-
-                            sub_handler->SetPublishInitiated();
-
-                            auto sub_ns =
-                              quicr::SubscribeNamespaceHandler::Create(sub_handler->GetFullTrackName().name_space,
-                                                                       quicr::SubscribeNamespaceHandler::Mode::kTracks);
-                            session->SubscribeNamespace(sub_ns);
-                        }
+                    for (const auto& sub_ns : nss_to_start) {
+                        session->SubscribeNamespace(sub_ns);
                     }
 
                     break;
+                }
                 case quicr::Session::Status::kNotReady:
                     SPDLOG_INFO("Client status - kNotReady");
                     break;
@@ -128,26 +153,34 @@ namespace moqbench {
 
         bool HandlersComplete() override
         {
-            std::lock_guard<std::mutex> _(mutex_);
-            defer(std::this_thread::sleep_for(std::chrono::milliseconds(100)));
+            bool complete = false;
+            {
+                std::lock_guard<std::mutex> _(mutex_);
 
-            if (sub_track_handlers_.empty() || pub_track_handlers_.empty()) {
-                return false;
-            }
+                if (sub_track_handlers_.empty() || pub_track_handlers_.empty()) {
+                    complete = false;
+                } else {
+                    complete = true;
+                    for (auto handler : pub_track_handlers_) {
+                        if (!handler->IsComplete()) {
+                            complete = false;
+                            break;
+                        }
+                    }
 
-            for (auto handler : pub_track_handlers_) {
-                if (!handler->IsComplete()) {
-                    return false;
+                    if (complete) {
+                        for (auto handler : sub_track_handlers_) {
+                            if (!handler->IsComplete() && !handler->HasTimedOut()) {
+                                complete = false;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
-            for (auto handler : sub_track_handlers_) {
-                if (!handler->IsComplete() && !handler->HasTimedOut()) {
-                    return false;
-                }
-            }
-
-            return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            return complete;
         }
 
         void Terminate(const std::shared_ptr<quicr::Session>& session) override

@@ -19,6 +19,7 @@ namespace moqbench {
       : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
       , perf_config_(perf_config)
       , terminate_(false)
+      , writer_finished_(false)
       , last_bytes_(0)
       , test_mode_(moqbench::TestMode::kNone)
       , group_id_(0)
@@ -216,7 +217,12 @@ namespace moqbench {
         object_headers.ttl = perf_config_.ttl;
 
         object_headers.payload_length = sizeof(test_complete);
-        PublishObject(object_headers, object_data);
+        const auto status = PublishObject(object_headers, object_data);
+        if (status != quicr::PublishTrackHandler::PublishObjectStatus::kOk) {
+            SPDLOG_WARN("{} PublishTestComplete dropped COMPLETE object (status={})",
+                        perf_config_.test_name,
+                        static_cast<int>(status));
+        }
 
         auto total_transmit_time = test_metrics_.end_transmit_time - test_metrics_.start_transmit_time;
         SPDLOG_INFO("PO, COMPLETE, {}, {}, {}, {}, {}, {}",
@@ -267,6 +273,7 @@ namespace moqbench {
 
         if (perf_config_.total_test_time <= 0) {
             SPDLOG_WARN("Transmit time <= 0 - stopping test");
+            writer_finished_.store(true, std::memory_order_release);
             return;
         }
 
@@ -334,7 +341,13 @@ namespace moqbench {
                 // publish COMPLETE object  - end of test
                 std::this_thread::sleep_for(std::chrono::milliseconds(33));
                 PublishTestComplete();
-                std::this_thread::sleep_for(std::chrono::milliseconds(perf_config_.start_delay / 2));
+                // Keep the last subgroup open while COMPLETE and trailing objects
+                // drain. Closing it immediately queued a FIN behind in-flight data
+                // and dropped objects that had reached their TTL.
+                const auto drain_ms = std::max<std::uint64_t>(perf_config_.start_delay / 2, 500);
+                std::this_thread::sleep_for(std::chrono::milliseconds(drain_ms));
+                EndSubgroup(group_id_, 0);
+                writer_finished_.store(true, std::memory_order_release);
                 terminate_ = true;
                 return;
             }

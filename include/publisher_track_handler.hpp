@@ -5,6 +5,7 @@
 
 #include <quicr/handlers/publish_track_handler.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 
@@ -35,11 +36,16 @@ namespace moqbench {
         void WriteThread();
         void StopWriter();
 
-        bool IsComplete() { return (test_mode_ == moqbench::TestMode::kComplete); }
+        /// True only after COMPLETE has been published, the last subgroup has been
+        /// ended, and the post-complete drain has finished. Using test_mode_ here
+        /// lets a meeting client exit the instant COMPLETE is queued, which tears
+        /// down the session before peers can receive it.
+        bool IsComplete() const { return writer_finished_.load(std::memory_order_acquire); }
 
       private:
         PerfConfig perf_config_;
         std::atomic_bool terminate_;
+        std::atomic_bool writer_finished_;
         uint64_t last_bytes_;
         moqbench::TestMode test_mode_;
         uint64_t group_id_;

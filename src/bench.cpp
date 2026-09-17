@@ -171,5 +171,10 @@ main(int argc, char** argv)
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
+    // Unpublish/unsubscribe while the session is still up so COMPLETE can flush
+    // instead of dropping the connection out from under peers.
+    callbacks->Terminate(session);
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
     return EXIT_SUCCESS;
 }

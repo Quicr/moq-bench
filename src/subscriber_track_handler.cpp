@@ -11,14 +11,18 @@
 
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
+#include <cstring>
 #include <cstdlib>
-#include <functional>
-#include <stack>
+#include <limits>
+#include <mutex>
 #include <string>
 #include <thread>
 
 namespace moqbench {
+
+    namespace {
+        constexpr auto kCompleteStragglerGrace = std::chrono::milliseconds(250);
+    }
 
     std::atomic_bool terminate = false;
 
@@ -43,6 +47,7 @@ namespace moqbench {
                     ? std::nullopt
                     : std::optional(created_at_ + std::chrono::milliseconds(perf_config.total_test_time) +
                                     std::chrono::milliseconds(timeout_grace_ms)))
+      , pending_complete_(std::nullopt)
       , perf_config_(perf_config)
       , first_pass_(true)
       , last_bytes_(0)
@@ -79,8 +84,32 @@ namespace moqbench {
           new PerfSubscribeTrackHandler(perf_config, instance_id, false, timeout_grace_ms));
     }
 
+    bool PerfSubscribeTrackHandler::IsComplete()
+    {
+        MaybeFinalizeComplete();
+        return terminate_;
+    }
+
+    void PerfSubscribeTrackHandler::MaybeFinalizeComplete()
+    {
+        std::lock_guard<std::mutex> _(stats_mutex_);
+        if (terminate_ || !pending_complete_.has_value()) {
+            return;
+        }
+
+        if (std::chrono::steady_clock::now() - pending_complete_at_ < kCompleteStragglerGrace) {
+            return;
+        }
+
+        LogTestComplete(*pending_complete_);
+        pending_complete_.reset();
+        terminate_ = true;
+    }
+
     bool PerfSubscribeTrackHandler::HasTimedOut()
     {
+        MaybeFinalizeComplete();
+
         if (!deadline_ || terminate_) {
             return false;
         }
@@ -167,6 +196,11 @@ namespace moqbench {
                                                    quicr::BytesSpan data_span,
                                                    std::optional<quicr::messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard<std::mutex> _(stats_mutex_);
+        if (terminate_) {
+            return;
+        }
+
         auto received_time = std::chrono::system_clock::now();
         local_now_ = std::chrono::time_point_cast<std::chrono::microseconds>(received_time).time_since_epoch().count();
 
@@ -253,69 +287,22 @@ namespace moqbench {
 
         } else if (test_mode_ == moqbench::TestMode::kComplete) {
 
+            if (pending_complete_.has_value()) {
+                total_objects_ -= 1;
+                total_bytes_ -= data_span.size();
+                return;
+            }
+
             ObjectTestComplete test_complete;
-
             memset(&test_complete, '\0', sizeof(test_complete));
-            memcpy(&test_complete, data_span.data(), sizeof(test_complete));
+            const auto copy_bytes =
+              data_span.size() < sizeof(test_complete) ? data_span.size() : sizeof(test_complete);
+            memcpy(&test_complete, data_span.data(), copy_bytes);
 
-            std::int64_t total_time = local_now_ - start_data_time_;
-            avg_object_time_delta_ = (double)total_time_delta_ / (double)total_objects_;
-            avg_object_arrival_delta_ =
-              (double)total_arrival_delta_ / (double)total_objects_ - 1; // subtract 1st object
-
-            SPDLOG_INFO("--------------------------------------------");
-            SPDLOG_INFO("{}", perf_config_.test_name);
-            SPDLOG_INFO("Testing Complete");
-            SPDLOG_INFO("       Total test run time (ms) {}", total_time / 1000.0f);
-            SPDLOG_INFO("      Configured test time (ms) {}", perf_config_.total_transmit_time);
-            SPDLOG_INFO("       Total subscribed objects {}, bytes {}", total_objects_, total_bytes_);
-            SPDLOG_INFO("        Total published objects {}, bytes {}",
-                        test_complete.test_metrics.total_published_objects,
-                        test_complete.test_metrics.total_published_bytes);
-            SPDLOG_INFO("       Subscribed delta objects {}, bytes {}",
-                        test_complete.test_metrics.total_published_objects - total_objects_,
-                        test_complete.test_metrics.total_published_bytes - total_bytes_);
-            SPDLOG_INFO("                  Bitrate (bps):");
-            SPDLOG_INFO("                            min {}", min_bitrate_);
-            SPDLOG_INFO("                            max {}", max_bitrate_);
-            SPDLOG_INFO("                            avg {:.3f}", avg_bitrate_);
-            SPDLOG_INFO("                                {}", FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
-            SPDLOG_INFO("        Object time delta (us):");
-            SPDLOG_INFO("                            min {}", min_object_time_delta_);
-            SPDLOG_INFO("                            max {}", max_object_time_delta_);
-            SPDLOG_INFO("                            avg {:04.3f} ", avg_object_time_delta_);
-            SPDLOG_INFO("     Object arrival delta (us):");
-            SPDLOG_INFO("                            min {}", min_object_arrival_delta_);
-            SPDLOG_INFO("                            max {}", max_object_arrival_delta_);
-            SPDLOG_INFO("                            avg {:04.3f}", avg_object_arrival_delta_);
-            SPDLOG_INFO("                            over_multiplier {}",
-                        static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
-            SPDLOG_INFO("--------------------------------------------");
-
-            // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,min_bitrate,
-            //       max_bitrate,avg_bitrate,min_time,maxtime,avg_time,min_arrival,max_arrival,avg_arrival,
-            //       delta_objects,arrival_over_multiplier
-            SPDLOG_INFO("OR COMPLETE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
-                        perf_config_.test_name,
-                        total_time,
-                        perf_config_.total_transmit_time,
-                        total_objects_,
-                        total_bytes_,
-                        test_complete.test_metrics.total_published_objects,
-                        test_complete.test_metrics.total_published_bytes,
-                        min_bitrate_,
-                        max_bitrate_,
-                        avg_bitrate_,
-                        min_object_time_delta_,
-                        max_object_time_delta_,
-                        avg_object_time_delta_,
-                        min_object_arrival_delta_,
-                        max_object_arrival_delta_,
-                        avg_object_arrival_delta_,
-                        test_complete.test_metrics.total_published_objects - total_objects_,
-                        static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
-            terminate_ = true;
+            pending_complete_ = test_complete;
+            pending_complete_at_ = std::chrono::steady_clock::now();
+            last_local_now_ = local_now_;
+            first_pass_ = false;
             return;
         } else {
             SPDLOG_WARN(
@@ -324,6 +311,67 @@ namespace moqbench {
 
         last_local_now_ = local_now_;
         first_pass_ = false;
+    }
+
+    void PerfSubscribeTrackHandler::LogTestComplete(const ObjectTestComplete& test_complete)
+    {
+        std::int64_t total_time = local_now_ - start_data_time_;
+        avg_object_time_delta_ = (double)total_time_delta_ / (double)total_objects_;
+        avg_object_arrival_delta_ =
+          (double)total_arrival_delta_ / (double)total_objects_ - 1; // subtract 1st object
+
+        SPDLOG_INFO("--------------------------------------------");
+        SPDLOG_INFO("{}", perf_config_.test_name);
+        SPDLOG_INFO("Testing Complete");
+        SPDLOG_INFO("       Total test run time (ms) {}", total_time / 1000.0f);
+        SPDLOG_INFO("      Configured test time (ms) {}", perf_config_.total_transmit_time);
+        SPDLOG_INFO("       Total subscribed objects {}, bytes {}", total_objects_, total_bytes_);
+        SPDLOG_INFO("        Total published objects {}, bytes {}",
+                    test_complete.test_metrics.total_published_objects,
+                    test_complete.test_metrics.total_published_bytes);
+        SPDLOG_INFO("       Subscribed delta objects {}, bytes {}",
+                    test_complete.test_metrics.total_published_objects - total_objects_,
+                    test_complete.test_metrics.total_published_bytes - total_bytes_);
+        SPDLOG_INFO("                  Bitrate (bps):");
+        SPDLOG_INFO("                            min {}", min_bitrate_);
+        SPDLOG_INFO("                            max {}", max_bitrate_);
+        SPDLOG_INFO("                            avg {:.3f}", avg_bitrate_);
+        SPDLOG_INFO("                                {}", FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
+        SPDLOG_INFO("        Object time delta (us):");
+        SPDLOG_INFO("                            min {}", min_object_time_delta_);
+        SPDLOG_INFO("                            max {}", max_object_time_delta_);
+        SPDLOG_INFO("                            avg {:04.3f} ", avg_object_time_delta_);
+        SPDLOG_INFO("     Object arrival delta (us):");
+        SPDLOG_INFO("                            min {}", min_object_arrival_delta_);
+        SPDLOG_INFO("                            max {}", max_object_arrival_delta_);
+        SPDLOG_INFO("                            avg {:04.3f}", avg_object_arrival_delta_);
+        SPDLOG_INFO("                            over_multiplier {}",
+                    static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
+        SPDLOG_INFO("--------------------------------------------");
+
+        // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,min_bitrate,
+        //       max_bitrate,avg_bitrate,min_time,maxtime,avg_time,min_arrival,max_arrival,avg_arrival,
+        //       delta_objects,arrival_over_multiplier
+        SPDLOG_INFO("OR COMPLETE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                    test_identifier_,
+                    perf_config_.test_name,
+                    total_time,
+                    perf_config_.total_transmit_time,
+                    total_objects_,
+                    total_bytes_,
+                    test_complete.test_metrics.total_published_objects,
+                    test_complete.test_metrics.total_published_bytes,
+                    min_bitrate_,
+                    max_bitrate_,
+                    avg_bitrate_,
+                    min_object_time_delta_,
+                    max_object_time_delta_,
+                    avg_object_time_delta_,
+                    min_object_arrival_delta_,
+                    max_object_arrival_delta_,
+                    avg_object_arrival_delta_,
+                    test_complete.test_metrics.total_published_objects - total_objects_,
+                    static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
     }
 
     void PerfSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics& metrics)

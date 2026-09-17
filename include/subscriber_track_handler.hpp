@@ -8,6 +8,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <mutex>
 #include <optional>
 
 namespace moqbench {
@@ -34,17 +35,23 @@ namespace moqbench {
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
 
-        bool IsComplete() { return terminate_; }
+        bool IsComplete();
 
         bool HasTimedOut();
 
         std::string TestName() { return perf_config_.test_name; }
 
       private:
+        void MaybeFinalizeComplete();
+        void LogTestComplete(const ObjectTestComplete& test_complete);
+
+        std::mutex stats_mutex_;
         std::atomic_bool terminate_;
         std::atomic_bool timed_out_;
         std::chrono::steady_clock::time_point created_at_;
         std::optional<std::chrono::steady_clock::time_point> deadline_;
+        std::optional<ObjectTestComplete> pending_complete_;
+        std::chrono::steady_clock::time_point pending_complete_at_{};
         PerfConfig perf_config_;
         quicr::SubscribeTrackMetrics metrics_;
         bool first_pass_;
