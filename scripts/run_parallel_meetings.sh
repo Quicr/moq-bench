@@ -27,7 +27,7 @@ fi
 
 if [ -z "$4" ]; then
     echo "Using default number of clients"
-    INSTANCES=${1:-100}
+    INSTANCES=5
 elif [ "$4" -eq 0 ]; then
     echo "Num clients must be greater than 0"
     exit 1
@@ -40,6 +40,4 @@ echo "Running $MEETINGS meetings with $INSTANCES clients each"
 rm -rf $LOGS_DIR
 mkdir -p $LOGS_DIR
 
-for conference_id in $(seq 1 $MEETINGS); do
-    parallel -j ${INSTANCES}  "./moqbench_meeting --meeting_id $conference_id -i {} -n $INSTANCES -c $CONFIG_PATH --connect_uri $RELAY > $LOGS_DIR/t_$conference_id{}logs.txt 2>&1 &" ::: $(seq ${INSTANCES})
-done
+parallel -j $((MEETINGS * INSTANCES)) "./moqbench --meeting --meeting_id {1} -i {2} -n $INSTANCES -c $CONFIG_PATH -r $RELAY > $LOGS_DIR/t_m{1}_c{2}_logs.txt 2>&1" ::: $(seq ${MEETINGS}) ::: $(seq ${INSTANCES})
