@@ -11,8 +11,8 @@
 
 #include <atomic>
 #include <chrono>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <mutex>
 #include <string>
@@ -295,8 +295,7 @@ namespace moqbench {
 
             ObjectTestComplete test_complete;
             memset(&test_complete, '\0', sizeof(test_complete));
-            const auto copy_bytes =
-              data_span.size() < sizeof(test_complete) ? data_span.size() : sizeof(test_complete);
+            const auto copy_bytes = data_span.size() < sizeof(test_complete) ? data_span.size() : sizeof(test_complete);
             memcpy(&test_complete, data_span.data(), copy_bytes);
 
             pending_complete_ = test_complete;
@@ -317,8 +316,7 @@ namespace moqbench {
     {
         std::int64_t total_time = local_now_ - start_data_time_;
         avg_object_time_delta_ = (double)total_time_delta_ / (double)total_objects_;
-        avg_object_arrival_delta_ =
-          (double)total_arrival_delta_ / (double)total_objects_ - 1; // subtract 1st object
+        avg_object_arrival_delta_ = (double)total_arrival_delta_ / (double)total_objects_ - 1; // subtract 1st object
 
         SPDLOG_INFO("--------------------------------------------");
         SPDLOG_INFO("{}", perf_config_.test_name);
