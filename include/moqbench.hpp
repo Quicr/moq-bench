@@ -2,9 +2,9 @@
 
 #include "inicpp.h"
 
-#include <quicr/client.h>
+#include <quicr/session.h>
+#include <quicr/utilities/format.h>
 
-#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <cstdint>
@@ -82,7 +82,8 @@ namespace moqbench {
 
         auto& section = inif[section_name];
 
-        scenario_namespace = fmt::vformat(section["namespace"].as<std::string>(), fmt::make_format_args(instance_id));
+        scenario_namespace =
+          std_or_fmt::vformat(section["namespace"].as<std::string>(), std_or_fmt::make_format_args(instance_id));
         scenario_name = section["name"].as<std::string>();
         perf_config.full_track_name = MakeFullTrackName(scenario_namespace, scenario_name);
 
@@ -140,10 +141,5 @@ namespace moqbench {
 
         return std::to_string(bitrate) + " bps";
     }
-
-    /**
-     * @brief Publish track handler
-     * @details Publish track handler used for the publish command line option
-     */
 
 } // namespace moqbench
