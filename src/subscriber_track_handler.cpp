@@ -344,7 +344,7 @@ namespace moqbench {
         SPDLOG_INFO("                            max {}", max_object_arrival_delta_);
         SPDLOG_INFO("                            avg {:04.3f}", avg_object_arrival_delta_);
         SPDLOG_INFO("                            over_multiplier {}",
-                    static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
+                    static_cast<int>(avg_object_time_delta_ / (perf_config_.transmit_interval * 10000)));
         SPDLOG_INFO("--------------------------------------------");
 
         // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,min_bitrate,
@@ -369,7 +369,7 @@ namespace moqbench {
                     max_object_arrival_delta_,
                     avg_object_arrival_delta_,
                     test_complete.test_metrics.total_published_objects - total_objects_,
-                    static_cast<int>(avg_object_arrival_delta_ / (perf_config_.transmit_interval * 10000)));
+                    static_cast<int>(avg_object_time_delta_ / (perf_config_.transmit_interval * 10000)));
     }
 
     void PerfSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics& metrics)
