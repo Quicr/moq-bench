@@ -44,8 +44,8 @@ namespace moqbench {
                 case quicr::Session::Status::kDisconnecting:
                     SPDLOG_INFO("PerfPubClient - kDisconnecting");
                     break;
-                case quicr::Session::Status::kPendingServerSetup:
-                    SPDLOG_INFO("PerfPubClient - kPendingSeverSetup");
+                case quicr::Session::Status::kPendingPeerSetup:
+                    SPDLOG_INFO("PerfPubClient - kPendingPeerSetup");
                     break;
 
                 // All of the rest of these are 'errors' and will set terminate_.

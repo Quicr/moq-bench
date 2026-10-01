@@ -128,8 +128,8 @@ namespace moqbench {
                     SPDLOG_INFO("Client status - kNotConnected - terminate");
                     terminate_ = true;
                     break;
-                case quicr::Session::Status::kPendingServerSetup:
-                    SPDLOG_INFO("Client status - kPendingSeverSetup");
+                case quicr::Session::Status::kPendingPeerSetup:
+                    SPDLOG_INFO("Client status - kPendingPeerSetup");
                     break;
 
                 case quicr::Session::Status::kFailedToConnect:
