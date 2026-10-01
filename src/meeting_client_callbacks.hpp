@@ -84,8 +84,8 @@ namespace moqbench {
                         std::lock_guard<std::mutex> _(mutex_);
 
                         for (const auto& [section_name, _] : inif_) {
-                            auto pub_handler = pub_track_handlers_.emplace_back(
-                              PerfPublishTrackHandler::Create(section_name, inif_, instance_id_ + (meeting_id_ * 1000)));
+                            auto pub_handler = pub_track_handlers_.emplace_back(PerfPublishTrackHandler::Create(
+                              section_name, inif_, instance_id_ + (meeting_id_ * 1000)));
                             pubs_to_start.push_back(pub_handler);
                         }
 
