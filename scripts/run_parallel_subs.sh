@@ -27,5 +27,7 @@ fi
 
 echo "Running $NUM_SUBS subscriber clients"
 
+rm -rf $LOGS_DIR
 mkdir -p $LOGS_DIR
-parallel -j ${NUM_SUBS}  "./moqbench_sub -i {} -c $CONFIG_PATH --connect_uri $RELAY > $LOGS_DIR/t_{}logs.txt 2>&1" ::: $(seq ${NUM_SUBS})
+
+parallel -j ${NUM_SUBS}  "./moqbench --subscriber -i {} -c $CONFIG_PATH --connect_uri $RELAY > $LOGS_DIR/t_{}logs.txt 2>&1" ::: $(seq ${NUM_SUBS})

@@ -39,12 +39,12 @@ jobs:
 
     - name: Install Packages (macOS)
       run: |
-        brew install llvm go
+        brew install llvm
         ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
       if: matrix.os == 'macos-latest'
 
     - name: Install Packages (Ubuntu)
-      run: |        
+      run: |
         sudo apt-get install -y clang-tidy-15
       if: matrix.os == 'ubuntu-22.04'
 

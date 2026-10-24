@@ -1,10 +1,15 @@
 #pragma once
 
-#include <cstdint>
-#include <quicr/client.h>
-
 #include "inicpp.h"
 #include "moqbench.hpp"
+
+#include <quicr/handlers/subscribe_track_handler.h>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <mutex>
+#include <optional>
 
 namespace moqbench {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
@@ -12,12 +17,17 @@ namespace moqbench {
       private:
         PerfSubscribeTrackHandler(const PerfConfig& perf_config,
                                   std::uint32_t test_identifier,
-                                  bool publish_initiated = false);
+                                  bool publish_initiated = false,
+                                  std::uint64_t timeout_grace_ms = 0);
 
       public:
+        /// A non-zero timeout_grace_ms arms a deadline of the configured test time plus
+        /// that grace, after which the track stops waiting for a peer that may never
+        /// publish its test complete object. Zero leaves the handler waiting forever.
         static std::shared_ptr<PerfSubscribeTrackHandler> Create(const std::string& section_name,
                                                                  ini::IniFile& inif,
-                                                                 std::uint32_t test_identifier);
+                                                                 std::uint32_t test_identifier,
+                                                                 std::uint64_t timeout_grace_ms = 0);
         void ObjectReceived(const quicr::ObjectHeaders&,
                             quicr::BytesSpan,
                             std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
@@ -25,12 +35,23 @@ namespace moqbench {
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
 
-        bool IsComplete() { return terminate_; }
+        bool IsComplete();
+
+        bool HasTimedOut();
 
         std::string TestName() { return perf_config_.test_name; }
 
       private:
+        void MaybeFinalizeComplete();
+        void LogTestComplete(const ObjectTestComplete& test_complete);
+
+        std::mutex stats_mutex_;
         std::atomic_bool terminate_;
+        std::atomic_bool timed_out_;
+        std::chrono::steady_clock::time_point created_at_;
+        std::optional<std::chrono::steady_clock::time_point> deadline_;
+        std::optional<ObjectTestComplete> pending_complete_;
+        std::chrono::steady_clock::time_point pending_complete_at_{};
         PerfConfig perf_config_;
         quicr::SubscribeTrackMetrics metrics_;
         bool first_pass_;
