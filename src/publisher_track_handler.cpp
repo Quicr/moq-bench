@@ -16,7 +16,11 @@
 
 namespace moqbench {
     PerfPublishTrackHandler::PerfPublishTrackHandler(const PerfConfig& perf_config)
-      : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
+      : PublishTrackHandler(perf_config.full_track_name,
+                            perf_config.track_mode,
+                            perf_config.priority,
+                            perf_config.priority,
+                            perf_config.ttl)
       , perf_config_(perf_config)
       , terminate_(false)
       , writer_finished_(false)
